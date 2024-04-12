@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+{% load static %}
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Lucky Draw Game</title>
+		<link rel="icon" href="{% static 'images/gift_box.png' %}" type="image/png" />
+
+		<link
+			href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+			rel="stylesheet"
+		/>
+		<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+		<style>
+			.box {
+				padding: 5px;
+				text-align: center;
+				cursor: pointer;
+				margin-bottom: 20px;
+				position: relative; /* Added for positioning the random number */
+			}
+
+			.hidden-prize {
+				display: none;
+			}
+
+			.selected,
+			.not-allowed {
+				pointer-events: none;
+				opacity: 0.6;
+			}
+
+			.gift-box {
+				width: 100%;
+				height: auto;
+				display: block;
+				margin: 0 auto;
+			}
+
+			.random-number {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 3em; /* Adjust size as needed */
+				color: white; /* White color for the text */
+				-webkit-text-stroke: 1px black; /* 1px black stroke */
+			}
+
+			.selection-message {
+				font-size: 1.5em;
+				font-weight: bold;
+				color: #d4a63e;
+			}
+
+			.hidden-prize {
+				font-size: 1.5em;
+				color: #d4a63e;
+				position: absolute;
+				top: 0;
+				left: 40px;
+			}
+
+			.gift-form {
+				max-width: 500px;
+				padding: 15px;
+				margin: auto;
+			}
+
+			.gift-form-heading {
+				color: #e6bf67;
+			}
+
+			input:focus {
+				border-color: #e6bf67 !important;
+				box-shadow: 0 0 0 0.25rem rgba(230, 191, 103, 0.25) !important;
+			}
+
+			.gift-form-button {
+				background-color: #e6bf67 !important;
+				border-color: #e6bf67 !important;
+			}
+
+			.gift-form-button:hover {
+				background-color: #d4a63e !important;
+				border-color: #d4a63e !important;
+			}
+
+			.gift-form-button:focus {
+				background-color: #d4a63e !important;
+				border-color: #d4a63e !important;
+				border-color: #e6bf67 !important;
+				box-shadow: 0 0 0 0.25rem rgba(230, 191, 103, 0.25) !important;
+			}
+
+			#loadingGif {
+				display: none;
+				opacity: 0;
+				width: 100vw; /* Full width of the viewport */
+				height: 100vh; /* Full height of the viewport */
+				background-image: url("{% static 'images/loading.gif' %}");
+				background-size: cover;
+				background-position: center;
+				background-repeat: no-repeat;
+				transition: opacity 0.5s ease; /* Fade animation */
+			}
+
+			#gift-box-container {
+				display: none;
+				text-align: center;
+			}
+
+			.border-gift {
+				border-radius: 10px;
+				background-color: #e6bf67;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container py-4 gift-form-container">
+			<form class="gift-form" id="winGiftForm">
+				<h1 class="gift-form-heading text-center mb-4">
+					Submit form to win gift
+				</h1>
+				<div class="form-floating mb-3">
+					<input
+						type="email"
+						class="form-control"
+						id="inputEmail"
+						name="email"
+						placeholder="name@example.com"
+						required
+					/>
+					<label for="inputEmail">Email address</label>
+				</div>
+				<div class="form-floating mb-3">
+					<input
+						type="text"
+						class="form-control"
+						id="inputVoucher"
+						name="voucher"
+						placeholder="Voucher Code"
+						required
+					/>
+					<label for="inputVoucher">Voucher Code</label>
+				</div>
+				<button
+					class="w-100 btn btn-lg btn-primary gift-form-button"
+					type="submit"
+				>
+					Submit
+				</button>
+			</form>
+		</div>
+		<div id="loadingGif"></div>
+		<div class="container py-4" id="gift-box-container">
+			<h1 class="gift-form-heading text-center mb-4">Select Price</h1>
+			<input type="hidden" id="modelId" />
+			<div class="row justify-content-center" id="boxesContainer"></div>
+		</div>
+
+		<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+		<script>
+			$(document).ready(function () {
+				$("#winGiftForm").submit(function (e) {
+					e.preventDefault();
+					$.ajax({
+						url: "/add_email/",
+						type: "post",
+						data: $(this).serialize(),
+						success: function (response) {
+							if (response.status == "success") {
+								$("#winGiftForm")[0].reset();
+								$("#modelId").val(response.id);
+								// Hide the form
+								var formContainer = document.querySelector(
+									".gift-form-container"
+								);
+								formContainer.style.display = "none";
+
+								// Show the loading gif with fade-in effect
+								var loadingGif =
+									document.getElementById("loadingGif");
+								loadingGif.style.display = "block";
+								setTimeout(function () {
+									loadingGif.style.opacity = 1;
+								}, 0);
+
+								// Simulate a delay to mimic form submission processing time
+								setTimeout(function () {
+									// Hide the loading gif with fade-out effect
+									loadingGif.style.opacity = 0;
+
+									// Function to display the thank you message after fade-out completes
+									var displayGiftBoxes = function () {
+										if (loadingGif.style.opacity == 0) {
+											loadingGif.removeEventListener(
+												"transitionend",
+												displayGiftBoxes
+											);
+											loadingGif.style.display = "none";
+
+											// Show the thank you message
+											document.getElementById(
+												"gift-box-container"
+											).style.display = "block";
+										}
+									};
+
+									// Attach an event listener to the loading gif to wait for the fade-out to complete
+									loadingGif.addEventListener(
+										"transitionend",
+										displayGiftBoxes
+									);
+								}, 5300); // Adjust the timeout to your preference
+							} else {
+								Swal.fire({
+									icon: "error",
+									title: "Oops...",
+									text: response.errors.voucher,
+									confirmButtonColor: "#e6bf67",
+								});
+							}
+						},
+					});
+				});
+			});
+		</script>
+		<script>
+			document
+				.getElementById("giftForm")
+				.addEventListener("submit", function (e) {
+					e.preventDefault();
+
+					// Hide the form
+					var formContainer = document.querySelector(
+						".gift-form-container"
+					);
+					formContainer.style.display = "none";
+
+					// Show the loading gif with fade-in effect
+					var loadingGif = document.getElementById("loadingGif");
+					loadingGif.style.display = "block";
+					setTimeout(function () {
+						loadingGif.style.opacity = 1;
+					}, 0);
+
+					// Simulate a delay to mimic form submission processing time
+					setTimeout(function () {
+						// Hide the loading gif with fade-out effect
+						loadingGif.style.opacity = 0;
+
+						// Function to display the thank you message after fade-out completes
+						var displayGiftBoxes = function () {
+							if (loadingGif.style.opacity == 0) {
+								loadingGif.removeEventListener(
+									"transitionend",
+									displayGiftBoxes
+								);
+								loadingGif.style.display = "none";
+
+								// Show the thank you message
+								document.getElementById(
+									"gift-box-container"
+								).style.display = "block";
+							}
+						};
+
+						// Attach an event listener to the loading gif to wait for the fade-out to complete
+						loadingGif.addEventListener(
+							"transitionend",
+							displayGiftBoxes
+						);
+					}, 5300); // Adjust the timeout to your preference
+				});
+		</script>
+
+		<script>
+			let boxNumbers;
+			document.addEventListener("DOMContentLoaded", function () {
+				const boxesContainer =
+					document.getElementById("boxesContainer");
+				boxNumbers = shuffleArray(
+					[...Array(10).keys()].map((x) => x + 1)
+				);
+
+				for (let i = 0; i < 10; i++) {
+					boxesContainer.innerHTML += `
+            <div class="col-md-2 col-sm-4 col-6 ms-md-1 ms-0">
+                <div class="box" onclick="revealPrize(this, ${i})">
+                    <div class="hidden-prize">Prize: <span class="fw-bold">$0/-</span></div>
+                    <img src="{% static 'images/gift_box.png' %}" class="gift-box" alt="Box" />
+                    <img src="{% static 'images/open_gift-2.png' %}" class="gift-box gift-box-open d-none" alt="Box" />
+                    <div class="random-number">${boxNumbers[i]}</div>
+                    <div class="selection-message d-none">You won</div>
+                </div>
+            </div>`;
+				}
+			});
+
+			function shuffleArray(array) {
+				for (let i = array.length - 1; i > 0; i--) {
+					let j = Math.floor(Math.random() * (i + 1));
+					[array[i], array[j]] = [array[j], array[i]]; // Swap elements
+				}
+				return array;
+			}
+
+			function revealPrize(element, index) {
+				let selectedBoxNumber = boxNumbers[index];
+
+				$.ajax({
+					url: "/getPrize", // Replace with your server-side URL
+					type: "POST",
+					data: {
+						selectedIndex: selectedBoxNumber,
+						modelId: $("#modelId").val(),
+					},
+					dataType: "json",
+					success: function (response) {
+                        Swal.fire({
+                            icon: "success",
+                            title: "Congratulations!",
+                            text: "You have won $" + response.selectedPrize + "/-",
+                            confirmButtonColor: "#e6bf67",
+                        });
+						// Handle the response
+						document
+							.querySelectorAll(".box")
+							.forEach((box, idx) => {
+								box.classList.add("not-allowed");
+
+								if (idx === index) {
+									box.querySelector(
+										".gift-box"
+									).style.display = "none";
+									box.querySelector(
+										".gift-box-open"
+									).classList.remove("d-none");
+									// Show the selected prize
+									box.querySelector(
+										".hidden-prize span"
+									).textContent =
+										"$" + response.selectedPrize + "/-";
+									box.querySelector(
+										".selection-message"
+									).classList.remove("d-none");
+									box.querySelector(
+										".hidden-prize"
+									).style.display = "block";
+									box.querySelector(
+										".gift-box-open"
+									).classList.add("border-gift");
+									box.querySelector(
+										".hidden-prize"
+									).classList.add("text-white");
+								} else {
+									// Show other random prizes after 2 seconds
+									let otherPrizeIndex =
+										idx > index ? idx - 1 : idx;
+
+									setTimeout(() => {
+										box.querySelector(
+											".hidden-prize"
+										).style.display = "block";
+										box.querySelector(
+											".gift-box"
+										).style.display = "none";
+										box.querySelector(
+											".gift-box-open"
+										).classList.remove("d-none");
+										box.querySelector(
+											".hidden-prize span"
+										).textContent =
+											"$" +
+											response.otherPrizes[
+												otherPrizeIndex
+											] +
+											"/-";
+									}, 2000);
+								}
+							});
+					},
+					error: function (xhr, status, error) {
+						// show sweet alert
+						Swal.fire({
+							icon: "error",
+							title: "Oops...",
+							text: "Something went wrong!" + error,
+							confirmButtonColor: "#e6bf67",
+						});
+						console.log("Error: " + error);
+					},
+				});
+			}
+		</script>
+	</body>
+</html>
