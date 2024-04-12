@@ -1,4 +1,5 @@
 echo "Building the project..."
+source venv/bin/activate
 python3.9 -m pip install -r requirements.txt
 
 echo "Collect Static..."
